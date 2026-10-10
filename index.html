@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>YoshiLine — TradingView indicators for liquidity, structure and stops</title>
+<meta name="description" content="Six TradingView indicators that map liquidity targets, reversal zones, volume inside structure, trendlines and stop placement. One payment, lifetime access.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,400..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0b0d; --panel: #111317; --panel2: #15181d; --line: #23262c; --text: #eeede8; --dim: #8b9098;
+    --up: #4caf50; --down: #e91e63; --gold: #d9a441;
+    --sans: "Archivo", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+  a { color: inherit; }
+  [hidden] { display: none !important; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .mono { font-family: var(--mono); font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); }
+  h1, h2, h3 { font-stretch: 78%; font-weight: 760; line-height: 1; letter-spacing: -.012em; margin: 0; }
+  h1 { font-size: clamp(46px, 6.4vw, 88px); }
+  h2 { font-size: clamp(34px, 4.6vw, 58px); }
+  h3 { font-size: 25px; line-height: 1.1; }
+  p { margin: 0; }
+  .btn { display: inline-flex; align-items: center; gap: 10px; padding: 14px 22px; border: 1px solid var(--text); background: var(--text); color: var(--bg); font-weight: 650; text-decoration: none; border-radius: 3px; transition: transform .15s, background .15s, border-color .15s; }
+  .btn:hover { transform: translateY(-1px); }
+  .btn.ghost { background: none; color: var(--text); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--dim); }
+  .btn i { font-style: normal; font-family: var(--mono); }
+
+  /* header */
+  header { position: sticky; top: 0; z-index: 10; background: rgba(10,11,13,.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .logo { font-weight: 800; font-stretch: 76%; font-size: 23px; text-decoration: none; display: inline-flex; align-items: center; gap: 9px; }
+  .logo::before { content: ""; width: 18px; height: 3px; background: var(--up); display: block; }
+  nav { display: flex; gap: 28px; align-items: center; font-size: 15px; }
+  nav a { text-decoration: none; color: var(--dim); transition: color .15s; }
+  nav a:hover { color: var(--text); }
+  nav .btn { padding: 9px 16px; color: var(--bg); }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.02fr 1fr; gap: 44px; align-items: center; padding: 72px 24px 64px; }
+  .hero .lead { max-width: 520px; margin: 24px 0 30px; font-size: 19.5px; color: var(--dim); }
+  .hero .cta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .pill { display: inline-flex; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 99px; padding: 6px 13px 6px 10px; margin-bottom: 24px; }
+  .pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 4px rgba(76,175,80,.16); }
+  .screen { background: #050506; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; box-shadow: 0 30px 80px -30px rgba(0,0,0,.9); }
+  .screen canvas { display: block; width: 100%; height: auto; }
+  .chrome { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .chrome b { font: 500 13px var(--mono); color: var(--text); letter-spacing: .04em; }
+  .foot { display: flex; justify-content: space-between; padding: 9px 14px; border-top: 1px solid var(--line); }
+
+  /* ticker */
+  .ticker { border-block: 1px solid var(--line); overflow: hidden; white-space: nowrap; padding: 15px 0; }
+  .ticker div { display: inline-block; animation: slide 38s linear infinite; }
+  .ticker span { font: 500 13px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin: 0 26px; }
+  .ticker span b { color: var(--text); font-weight: 500; }
+  @keyframes slide { to { transform: translateX(-50%); } }
+
+  section { padding: 96px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  .head { display: grid; gap: 14px; margin-bottom: 44px; max-width: 660px; }
+  .head p:last-child { color: var(--dim); font-size: 18.5px; }
+
+  /* tools */
+  .demo { display: grid; grid-template-columns: 290px 1fr; gap: 30px; align-items: start; }
+  .tabs { display: grid; gap: 2px; }
+  .tabs button { all: unset; box-sizing: border-box; cursor: pointer; padding: 14px 16px; border-left: 2px solid var(--line); color: var(--dim); font-weight: 620; transition: color .15s, background .15s; }
+  .tabs button:hover { color: var(--text); }
+  .tabs button small { display: block; font-weight: 400; font-size: 14px; margin-top: 2px; }
+  .tabs button[aria-selected="true"] { border-color: var(--up); color: var(--text); background: var(--panel); }
+  .blurb { margin-top: 20px; display: grid; grid-template-columns: 1fr auto; gap: 24px; align-items: start; }
+  .blurb p { color: var(--dim); max-width: 600px; }
+  .blurb p b { color: var(--text); font-weight: 620; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; max-width: 260px; }
+  .chips span { font: 500 11.5px var(--mono); letter-spacing: .05em; text-transform: uppercase; border: 1px solid var(--line); border-radius: 2px; padding: 3px 7px; color: var(--dim); }
+
+  /* principles */
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .grid3 > div { background: var(--bg); padding: 30px 28px 34px; }
+  .grid3 .mono { margin-bottom: 16px; color: var(--up); }
+  .grid3 p { color: var(--dim); margin-top: 10px; }
+
+  /* pricing */
+  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: stretch; }
+  .plan { border: 1px solid var(--line); background: var(--panel); padding: 30px 28px 28px; display: flex; flex-direction: column; border-radius: 5px; position: relative; transition: border-color .2s, transform .2s; }
+  .plan:hover { border-color: #3a3e46; transform: translateY(-3px); }
+  .plan.top { border-color: var(--text); background: var(--panel2); }
+  .plan .price { font: 500 46px var(--mono); margin: 18px 0 4px; letter-spacing: -.02em; }
+  .plan .price s { font-size: 20px; color: var(--dim); margin-left: 12px; letter-spacing: 0; }
+  .plan .mono em { font-style: normal; color: var(--up); }
+  .plan ul { list-style: none; padding: 0; margin: 24px 0 28px; display: grid; gap: 10px; flex: 1; border-top: 1px solid var(--line); padding-top: 22px; }
+  .plan li { padding-left: 20px; position: relative; }
+  .plan li::before { content: ""; position: absolute; left: 0; top: .62em; width: 9px; height: 2px; background: var(--up); }
+  .plan li.off { color: #50545c; }
+  .plan li.off::before { background: #34383f; }
+  .plan .btn { justify-content: center; }
+  .tag { align-self: flex-start; font: 500 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; border: 1px solid var(--line); padding: 3px 8px; border-radius: 2px; color: var(--dim); margin-bottom: 16px; }
+  .plan.top .tag { border-color: var(--up); color: var(--up); }
+  .included { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--line); }
+  .included b { display: block; font-weight: 650; }
+  .included span { color: var(--dim); font-size: 15px; }
+
+  /* reviews */
+  .reviews { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .reviews figure { margin: 0; border: 1px solid var(--line); background: var(--panel); padding: 26px; border-radius: 5px; }
+  .reviews blockquote { margin: 12px 0 18px; }
+  .stars { color: var(--gold); letter-spacing: 3px; }
+
+  /* faq */
+  .faq { display: grid; grid-template-columns: 340px 1fr; gap: 48px; }
+  details { border-bottom: 1px solid var(--line); padding: 20px 0; }
+  details:first-of-type { border-top: 1px solid var(--line); }
+  summary { cursor: pointer; font-weight: 650; font-size: 19px; list-style: none; display: flex; justify-content: space-between; gap: 20px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--mono); color: var(--dim); }
+  details[open] summary::after { content: "–"; }
+  details p { color: var(--dim); margin-top: 10px; max-width: 640px; }
+
+  /* closing */
+  .closing { text-align: center; padding: 110px 0; }
+  .closing p { color: var(--dim); margin: 18px auto 30px; max-width: 480px; font-size: 19px; }
+
+  footer { border-top: 1px solid var(--line); padding: 40px 0 90px; color: var(--dim); font-size: 14px; }
+  footer p { max-width: 840px; margin-top: 14px; }
+
+  .mobilebar { display: none; }
+  .rise { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+  .rise.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .rise { opacity: 1; transform: none; transition: none; } .ticker div { animation: none; } }
+
+  @media (max-width: 920px) {
+    nav a:not(.btn) { display: none; }
+    .hero { grid-template-columns: 1fr; padding-top: 48px; }
+    .demo, .faq { grid-template-columns: 1fr; gap: 22px; }
+    .tabs { grid-auto-flow: column; overflow-x: auto; }
+    .tabs button { border-left: 0; border-bottom: 2px solid var(--line); white-space: nowrap; }
+    .tabs button small { display: none; }
+    .blurb { grid-template-columns: 1fr; }
+    .chips { justify-content: flex-start; }
+    .grid3, .plans, .reviews { grid-template-columns: 1fr; }
+    .included { grid-template-columns: 1fr 1fr; }
+    section { padding: 64px 0; }
+    .mobilebar { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 9; padding: 10px 16px; gap: 12px; align-items: center; justify-content: space-between; background: rgba(10,11,13,.94); border-top: 1px solid var(--line); backdrop-filter: blur(10px); }
+    .mobilebar .btn { padding: 11px 18px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a class="logo" href="#top" data-brand></a>
+    <nav>
+      <a href="#film">Video</a>
+      <a href="#tools">Tools</a>
+      <a href="#why">Why it's different</a>
+      <a href="#reviews" id="navReviews" hidden>Reviews</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn" href="#pricing">Get access</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <div>
+      <span class="pill mono" data-launch></span>
+      <h1>Know where price is being pulled.</h1>
+      <p class="lead">Six TradingView indicators that mark the liquidity target, the reversal zone, the volume inside structure, the trendline and the stop. Each one draws a single thing and stays out of your way.</p>
+      <div class="cta">
+        <a class="btn" href="#pricing">See packages <i>→</i></a>
+        <a class="btn ghost" href="#film">Watch the video</a>
+      </div>
+    </div>
+    <div class="screen">
+      <div class="chrome"><b id="heroName">DOL</b><span class="mono">NQ · 5m</span></div>
+      <canvas id="heroCv" width="1120" height="760" aria-label="Animated illustration of the indicators"></canvas>
+      <div class="foot"><span class="mono" id="heroSub"></span><span class="mono">Illustration</span></div>
+    </div>
+  </div>
+
+  <div class="ticker" aria-hidden="true"><div id="ticker"></div></div>
+
+  <section id="film">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="mono">What we do</p>
+        <h2>The whole idea in 42 seconds.</h2>
+        <p>Why we built these, and what each of the six puts on your chart.</p>
+      </div>
+      <div class="screen rise">
+        <video src="explainer.mp4" poster="explainer-poster.jpg" controls playsinline preload="metadata" style="display:block;width:100%;height:auto;background:#050506"></video>
+      </div>
+    </div>
+  </section>
+
+  <section id="tools">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="mono">The toolkit</p>
+        <h2>Six tools. One job each.</h2>
+        <p>Pick one to see exactly what it puts on your chart.</p>
+      </div>
+      <div class="demo rise">
+        <div class="tabs" role="tablist" id="tabs"></div>
+        <div>
+          <div class="screen">
+            <canvas id="cv" width="1280" height="700" aria-label="Animated illustration of the selected indicator"></canvas>
+            <div class="foot"><span class="mono" id="demoName"></span><span class="mono">Illustration, not live market data</span></div>
+          </div>
+          <div class="blurb"><p id="blurb"></p><div class="chips" id="chips"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="why">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="mono">Why it's different</p>
+        <h2>Built to be read in a second.</h2>
+        <p>Most indicator suites bury price under boxes and dashboards. These do the scanning in the background and show you the result.</p>
+      </div>
+      <div class="grid3 rise">
+        <div><p class="mono">Clean</p><h3>One mark per tool</h3><p>A target line. A zone. A stop. Everything else is switched off until you ask for it.</p></div>
+        <div><p class="mono">Honest</p><h3>No repainting</h3><p>Higher-timeframe data is read from closed bars only. Once a line or zone is drawn, it does not move.</p></div>
+        <div><p class="mono">Multi-timeframe</p><h3>Scans what you can't</h3><p>Up to five timeframes are read at once, so the level on your 5-minute chart already accounts for the 4-hour.</p></div>
+        <div><p class="mono">Alerts</p><h3>Tells you when it matters</h3><p>New target, target reached, zone tagged, trendline touched or broken. Set once and step away.</p></div>
+        <div><p class="mono">Native</p><h3>Runs inside TradingView</h3><p>No downloads, no extra apps. Any symbol, any timeframe, desktop and mobile.</p></div>
+        <div><p class="mono">Yours</p><h3>Pay once</h3><p>Lifetime access and every future update. No subscription to remember to cancel.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <div class="head rise">
+        <p class="mono">How it works</p>
+        <h2>On your chart today.</h2>
+      </div>
+      <div class="grid3 rise">
+        <div><p class="mono">01</p><h3>Buy on Whop</h3><p>One payment. Leave your TradingView username at checkout.</p></div>
+        <div><p class="mono">02</p><h3>Get your invite</h3><p>Access is granted by hand to your TradingView account, normally the same day.</p></div>
+        <div><p class="mono">03</p><h3>Add to any chart</h3><p>Indicators → Invite-only scripts. Updates arrive on their own.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="reviews" hidden>
+    <div class="wrap">
+      <div class="head rise"><p class="mono">Reviews</p><h2>From traders using it.</h2><p>Verified purchases on Whop.</p></div>
+      <div class="reviews" id="reviewList"></div>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <div class="head rise">
+        <p class="mono">Pricing</p>
+        <h2>Launch pricing. No subscription.</h2>
+        <p>Lifetime access and every future update, whichever package you choose.</p>
+      </div>
+      <div class="plans rise" id="plans"></div>
+      <div class="included rise">
+        <div><b>Lifetime access</b><span>One payment, yours for good.</span></div>
+        <div><b>All future updates</b><span>Pushed to your account automatically.</span></div>
+        <div><b>Same-day invite</b><span>Granted by hand to your username.</span></div>
+        <div><b>Alerts built in</b><span>On every tool in your package.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap faq">
+      <div class="head rise"><p class="mono">FAQ</p><h2>Before you buy.</h2><p>Something else? <a data-contact></a></p></div>
+      <div class="rise">
+        <details open><summary>Is this a signal service?</summary><p>No. The indicators map targets, zones, lines and stops. You decide what to do with them, and you need your own strategy for them to be useful.</p></details>
+        <details><summary>What is PoT?</summary><p>Probability of Touch: an estimate of the chance price reaches the marked target, computed from its distance and current volatility.</p></details>
+        <details><summary>Do the indicators repaint?</summary><p>No. Higher-timeframe data is read from closed bars only, and lines and zones are fixed once drawn.</p></details>
+        <details><summary>Do I need a paid TradingView plan?</summary><p>The free plan shows two indicators per chart. To run more than two at once you need a paid TradingView plan.</p></details>
+        <details><summary>How fast do I get access?</summary><p>Invites are sent by hand to the TradingView username you give at checkout, normally the same day.</p></details>
+        <details><summary>Which markets and timeframes?</summary><p>Any symbol and any timeframe on TradingView. They were built on index futures.</p></details>
+        <details><summary>Can I upgrade later?</summary><p>Yes. Message us with your Whop order and you pay the difference between packages.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section class="closing">
+    <div class="wrap rise">
+      <h2>Stop drawing. Start reading.</h2>
+      <p>Six tools, one payment, on your chart today.</p>
+      <a class="btn" href="#pricing">Choose a package <i>→</i></a>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span class="logo" data-brand></span>
+    <p>Trading futures, forex, crypto and other leveraged products carries a high risk of loss and is not suitable for everyone. These indicators are analysis tools, not financial advice or trade signals, and nothing on this page is a promise of results. TradingView is a trademark of its owner, which is not affiliated with this product.</p>
+    <p>© <span id="yr"></span> <span data-brand-plain></span> · <a data-contact></a></p>
+  </div>
+</footer>
+
+<div class="mobilebar"><span class="mono" id="mobFrom"></span><a class="btn" href="#pricing">Get access</a></div>
+
+<script>
+// ── Everything you need to change is here ───────────────────────────────────
+const CONFIG = {
+  brand: "YoshiLine",
+  contact: "support@example.com",
+  // "regular" matches the crossed-out price Whop shows (its 20% discount setting); "price" is what buyers pay.
+  launchNote: "Launch pricing",
+  // Paste real reviews from your Whop page here: { name: "J. M.", text: "...", stars: 5 }
+  reviews: [],
+  plans: [
+    { id: "core", name: "Core",       price: 249, regular: 311.25, whop: "https://whop.com/yoshiline/yoshiline-core",       tag: "Start here", tools: ["DOL", "Reversals"] },
+    { id: "max",  name: "Complete",   price: 399, regular: 498.75, whop: "https://whop.com/yoshiline/yoshiline-complete",   tag: "Four tools", tools: ["DOL", "Reversals", "Heatmap", "Trendlines"], top: true },
+    { id: "all",  name: "Everything", price: 649, regular: 811.25, whop: "https://whop.com/yoshiline/yoshiline-everything", tag: "All six",    tools: ["DOL", "Reversals", "Heatmap", "Trendlines", "DOL Pro", "Stop Loss"] },
+  ],
+};
+// ────────────────────────────────────────────────────────────────────────────
+
+const ALL = ["DOL", "Reversals", "Heatmap", "Trendlines", "DOL Pro", "Stop Loss"];
+const $ = id => document.getElementById(id);
+const esc = t => String(t).replace(/[&<>"]/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+document.querySelectorAll("[data-brand]").forEach(e => e.textContent = CONFIG.brand);
+document.querySelectorAll("[data-brand-plain]").forEach(e => e.textContent = CONFIG.brand);
+document.querySelectorAll("[data-contact]").forEach(e => { e.textContent = CONFIG.contact; e.href = "mailto:" + CONFIG.contact; });
+$("yr").textContent = new Date().getFullYear();
+const best = Math.max(...CONFIG.plans.map(p => p.regular ? Math.round(100 * (1 - p.price / p.regular)) : 0));
+document.querySelector("[data-launch]").textContent = best ? `${CONFIG.launchNote} · up to ${best}% off` : "TradingView indicators";
+$("mobFrom").textContent = "From $" + Math.min(...CONFIG.plans.map(p => p.price));
+$("plans").innerHTML = CONFIG.plans.map(p => `
+  <div class="plan${p.top ? " top" : ""}">
+    <span class="tag">${p.tag}</span>
+    <h3>${p.name}</h3>
+    <div class="price">$${p.price}${p.regular ? `<s>$${p.regular}</s>` : ""}</div>
+    <span class="mono">${p.regular ? `<em>save ${Math.round(100 * (1 - p.price / p.regular))}%</em> · ` : ""}one payment · lifetime</span>
+    <ul>${ALL.map(t => `<li class="${p.tools.includes(t) ? "" : "off"}">${t}</li>`).join("")}</ul>
+    <a class="btn${p.top ? "" : " ghost"}" href="${p.whop}" target="_blank" rel="noopener">Get ${p.name} <i>→</i></a>
+  </div>`).join("");
+if (CONFIG.reviews.length) {
+  $("reviews").hidden = false; $("navReviews").hidden = false;
+  $("reviewList").innerHTML = CONFIG.reviews.map(r => `<figure><div class="stars">${"★".repeat(r.stars || 5)}</div><blockquote>${esc(r.text)}</blockquote><figcaption class="mono">${esc(r.name)} · verified on Whop</figcaption></figure>`).join("");
+}
+$("ticker").innerHTML = Array(2).fill(["Draw on liquidity", "Probability of touch", "Order blocks", "Fair value gaps", "Breaker blocks", "Equal highs & lows", "Session levels", "SD reversal zones", "Volume by price", "Auto trendlines", "Structural stops", "Multi-timeframe"].map(s => `<span><b>/</b> ${s}</span>`).join("")).join("");
+
+// ── Animated demos ──────────────────────────────────────────────────────────
+const TOOLS = [
+  { id: "dol", name: "DOL", sub: "Draw on liquidity", segs: [[24, .5], [10, -1.0], [20, .55], [36, -.62]], chips: ["Target line", "PoT", "Multi-TF", "Alerts"],
+    text: "<b>One line: the draw on liquidity.</b> Each timeframe tracks order blocks, breakers, fair value gaps and resting liquidity. The most significant level becomes the target, labelled with its Probability of Touch." },
+  { id: "pro", name: "DOL Pro", sub: "Merged target, opposite draw", segs: [[20, -.5], [14, .9], [22, -.35], [34, .6]], chips: ["Merged pools", "Opposite draw", "Bias table", "Sessions"],
+    text: "<b>The target, consolidated.</b> Equal highs and lows, large gaps, session and previous-day levels are merged where they overlap. You get the target, the opposite draw, and a bias arrow for every timeframe." },
+  { id: "rev", name: "Reversals", sub: "2–2.5 SD zones", segs: [[22, .35], [12, -.8], [30, 1.0], [26, -.7]], chips: ["SD projection", "Confluence only", "Rejection arrow"],
+    text: "<b>Where a move is stretched.</b> A manipulation leg is projected as standard deviations. The 2–2.5 band is kept only when an order block, gap or liquidity already sits inside it." },
+  { id: "heat", name: "Heatmap", sub: "Volume inside structure", segs: [[20, .7], [22, 0], [20, .8], [28, -.55]], chips: ["Volume by price", "HTF zones", "Heaviest price"],
+    text: "<b>Zones that are not flat boxes.</b> Order blocks, gaps and consolidations are filled with a volume-by-price profile, so you see which prices inside the zone actually traded." },
+  { id: "trend", name: "Trendlines", sub: "Lines and safety bands", segs: [[18, .9], [9, -.9], [20, 1.0], [9, -1.0], [22, .95], [12, -.6]], chips: ["Auto-drawn", "Safety line", "Touch & break alerts"],
+    text: "<b>Drawn for you, never moved.</b> Lines join confirmed swings on the chart and a higher timeframe. A parallel safety line marks the entry band, and alerts fire on a touch or a break." },
+  { id: "stop", name: "Stop Loss", sub: "Long and short stop", segs: [[26, .5], [14, -.6], [24, .45], [26, -.2]], chips: ["Long SL", "Short SL", "ATR multiple", "Position size"],
+    text: "<b>If you entered here, where does the stop go?</b> It weighs gaps, supply and demand zones and swings across timeframes and returns one long stop and one short stop, with the distance in ATR." },
+];
+const UP = "#4caf50", DOWN = "#e91e63", DIM = "#6f747c";
+function rng(seed) { return () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296; }
+function build(tool) {
+  const r = rng(7 + TOOLS.indexOf(tool) * 13), bars = []; let p = 100;
+  for (const [n, drift] of tool.segs) for (let i = 0; i < n; i++) {
+    const o = p, c = o + drift + (r() - .5) * 2.4;
+    bars.push({ o, c, h: Math.max(o, c) + r() * 1.1, l: Math.min(o, c) - r() * 1.1 }); p = c;
+  }
+  return bars;
+}
+const lo = (b, a, z) => b.slice(a, z).reduce((m, x, i) => x.l < m.v ? { v: x.l, i: a + i } : m, { v: 1e9, i: a });
+const hi = (b, a, z) => b.slice(a, z).reduce((m, x, i) => x.h > m.v ? { v: x.h, i: a + i } : m, { v: -1e9, i: a });
+
+class Demo {
+  constructor(canvas, onLoop) { this.cv = canvas; this.g = canvas.getContext("2d"); this.onLoop = onLoop; this.set(TOOLS[0]); }
+  set(tool) { this.tool = tool; this.bars = build(tool); this.shown = 26; this.hold = 0; this.top = null; this.bot = null; }
+  tick() {
+    if (this.shown < this.bars.length) this.shown++;
+    else if (++this.hold > 40) { this.onLoop ? this.onLoop() : this.set(this.tool); }
+  }
+  // price levels the overlay needs on screen, so the scale can make room for them
+  levels() {
+    const b = this.bars, s = this.shown, id = this.tool.id;
+    if (id === "dol" && s > 56) return [lo(b, 30, 40).v - 2];
+    if (id === "pro" && s > 58) return [hi(b, 26, 38).v + 2, lo(b, 44, 58).v - 2];
+    if (id === "rev" && s > 66) return [hi(b, 60, 68).v + 4];
+    return [];
+  }
+  draw() {
+    const { g, cv, bars, shown, tool } = this, W = cv.width, H = cv.height, N = bars.length;
+    const padR = W * .27, bw = (W - padR - 30) / N, vis = bars.slice(0, shown), cur = vis[vis.length - 1];
+    const lv = this.levels(), tTop = Math.max(hi(vis, 0, shown).v, ...lv) + 4, tBot = Math.min(lo(vis, 0, shown).v, ...lv) - 4;
+    this.top = this.top == null ? tTop : this.top + (tTop - this.top) * .14;
+    this.bot = this.bot == null ? tBot : this.bot + (tBot - this.bot) * .14;
+    const top = this.top, bot = this.bot;
+    const X = i => 30 + i * bw + bw / 2, Y = p => 36 + (top - p) / (top - bot) * (H - 72);
+    const xNow = X(shown - 1), xEnd = Math.min(xNow + W * .1, W - padR + 20), F = Math.round(W / 62);
+    g.fillStyle = "#050506"; g.fillRect(0, 0, W, H);
+    g.strokeStyle = "#101216"; g.lineWidth = 1;
+    for (let k = 1; k < 7; k++) { g.beginPath(); g.moveTo(0, k * H / 7); g.lineTo(W, k * H / 7); g.stroke(); }
+    for (let k = 1; k < 9; k++) { g.beginPath(); g.moveTo(k * W / 9, 0); g.lineTo(k * W / 9, H); g.stroke(); }
+    const label = (x, y, lines, col, below) => {
+      g.font = `500 ${F}px 'IBM Plex Mono', monospace`;
+      const w = Math.max(...lines.map(s => g.measureText(s).width)) + F * 1.2, h = lines.length * F * 1.35 + F * .7;
+      const lx = Math.min(x, W - w - 8), ly = below ? y + 10 : y - h - 10;
+      g.fillStyle = "#15171c"; g.fillRect(lx, ly, w, h); g.fillStyle = col; g.fillRect(lx, ly, 3, h);
+      lines.forEach((s, k) => g.fillText(s, lx + F * .7, ly + F * 1.3 + k * F * 1.35));
+    };
+    const hline = (x1, x2, p, col, w = 3, dash = []) => { g.strokeStyle = col; g.lineWidth = w; g.setLineDash(dash); g.beginPath(); g.moveTo(x1, Y(p)); g.lineTo(x2, Y(p)); g.stroke(); g.setLineDash([]); };
+    const band = (x1, x2, p1, p2, col, a) => { g.globalAlpha = a; g.fillStyle = col; g.fillRect(x1, Y(Math.max(p1, p2)), x2 - x1, Math.abs(Y(p1) - Y(p2))); g.globalAlpha = 1; };
+    const glow = (x1, x2, p, col) => { const y = Y(p), gr = g.createLinearGradient(0, y - 16, 0, y + 16); gr.addColorStop(0, "transparent"); gr.addColorStop(.5, col); gr.addColorStop(1, "transparent"); g.globalAlpha = .28; g.fillStyle = gr; g.fillRect(x1, y - 16, x2 - x1, 32); g.globalAlpha = 1; hline(x1, x2, p, col); };
+    const proj = (p, col) => { g.strokeStyle = col; g.globalAlpha = .75; g.lineWidth = 1.5; g.setLineDash([7, 7]); g.beginPath(); g.moveTo(xNow, Y(cur.c)); g.lineTo(xEnd, Y(p)); g.stroke(); g.setLineDash([]); g.globalAlpha = 1; };
+    const pot = (p, sd = 9) => Math.max(1, Math.min(99, 100 * Math.exp(-Math.abs(cur.c - p) / sd))).toFixed(1) + "%";
+
+    if (tool.id === "heat" && shown > 44) {
+      const a = lo(bars, 20, 42).v, b = hi(bars, 20, 42).v, rows = 11, step = (b - a) / rows;
+      for (let k = 0; k < rows; k++) { const heat = Math.exp(-Math.pow((k - 4) / 2.3, 2)); band(X(20), W - 40, a + k * step, a + (k + 1) * step, heat > .5 ? "#ff9800" : "#2962ff", .1 + heat * .6); }
+      hline(X(20), W - 40, a + 4.5 * step, "#ffcc80", 1.5, [8, 6]);
+      label(W - 200, Y(b), ["Range · heaviest price"], "#ffb74d", false);
+    }
+    if (tool.id === "rev" && shown > 66) {
+      const A = lo(bars, 22, 36), B = hi(bars, 60, 68), z1 = B.v + .3, z2 = B.v - 3.2;
+      band(X(56), W - 40, z1, z2, DOWN, .2); hline(X(56), W - 40, (z1 + z2) / 2, DOWN, 1, [6, 6]);
+      g.strokeStyle = DIM; g.setLineDash([5, 6]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(X(A.i), Y(A.v)); g.lineTo(X(B.i), Y(B.v)); g.stroke(); g.setLineDash([]);
+      label(W - 300, Y(z1), ["2–2.5 SD · FVG + BSL"], DOWN, false);
+    }
+    if (tool.id === "trend" && shown > 52) {
+      const p1 = lo(bars, 22, 32), p2 = lo(bars, 50, 62), m = (p2.v - p1.v) / (p2.i - p1.i), at = i => p1.v + m * (i - p1.i), iE = N + 16;
+      g.globalAlpha = .14; g.fillStyle = UP; g.beginPath(); g.moveTo(X(p1.i), Y(at(p1.i))); g.lineTo(X(iE), Y(at(iE))); g.lineTo(X(iE), Y(at(iE) + 2.6)); g.lineTo(X(p1.i), Y(at(p1.i) + 2.6)); g.fill(); g.globalAlpha = 1;
+      g.strokeStyle = UP; g.lineWidth = 3; g.beginPath(); g.moveTo(X(p1.i), Y(at(p1.i))); g.lineTo(X(iE), Y(at(iE))); g.stroke();
+      g.setLineDash([7, 6]); g.lineWidth = 1.2; g.beginPath(); g.moveTo(X(p1.i), Y(at(p1.i) + 2.6)); g.lineTo(X(iE), Y(at(iE) + 2.6)); g.stroke(); g.setLineDash([]);
+      [p1, p2].forEach(p => { g.fillStyle = UP; g.beginPath(); g.arc(X(p.i), Y(p.v), 6, 0, 7); g.fill(); });
+    }
+
+    vis.forEach((b, i) => {
+      const up = b.c >= b.o; g.strokeStyle = g.fillStyle = up ? "#ecebe6" : "#565a61"; g.lineWidth = 1.5;
+      g.beginPath(); g.moveTo(X(i), Y(b.h)); g.lineTo(X(i), Y(b.l)); g.stroke();
+      g.fillRect(X(i) - bw * .32, Y(Math.max(b.o, b.c)), bw * .64, Math.max(2, Math.abs(Y(b.o) - Y(b.c))));
+    });
+    g.strokeStyle = "#2c3037"; g.lineWidth = 1; g.setLineDash([2, 5]); g.beginPath(); g.moveTo(xNow, Y(cur.c)); g.lineTo(W, Y(cur.c)); g.stroke(); g.setLineDash([]);
+
+    if (tool.id === "dol" && shown > 56) {
+      const T = lo(bars, 30, 40), done = vis.slice(56).some(b => b.l <= T.v);
+      glow(X(T.i), xEnd, T.v, DOWN); if (!done) proj(T.v, DOWN);
+      label(xEnd + 10, Y(T.v) + 34, ["Target: 15m SSL", done ? "Reached" : "PoT: " + pot(T.v)], DOWN, false);
+    }
+    if (tool.id === "pro" && shown > 58) {
+      const T = hi(bars, 26, 38), O = lo(bars, 44, 58);
+      glow(X(T.i), xEnd, T.v, UP); proj(T.v, UP); hline(X(O.i), xEnd, O.v, DOWN, 1.5, [3, 6]);
+      label(xEnd + 10, Y(T.v) + 34, ["Target: PDH + 1H EQH", "PoT: " + pot(T.v)], UP, false);
+      label(xEnd + 10, Y(O.v) - 10, ["Opposite: Asia low " + pot(O.v)], DOWN, true);
+      g.font = `500 ${F}px 'IBM Plex Mono', monospace`;
+      ["5m", "15m", "1H", "4H", "D"].forEach((s, k) => { g.fillStyle = DIM; g.fillText(s, 44 + k * F * 3.4, 44); g.fillStyle = k === 1 ? DOWN : UP; g.fillText(k === 1 ? "▼" : "▲", 46 + k * F * 3.4, 44 + F * 1.4); });
+    }
+    if (tool.id === "rev" && shown > 70) { const B = hi(bars, 60, 68); g.fillStyle = DOWN; const x = X(B.i), y = Y(B.v) - 14; g.beginPath(); g.moveTo(x - 11, y - 16); g.lineTo(x + 11, y - 16); g.lineTo(x, y); g.fill(); }
+    if (tool.id === "stop") {
+      const a = Math.max(0, shown - 14), L = lo(bars, a, shown).v - 1.2, S = hi(bars, a, shown).v + 1.2, atr = 2.6;
+      hline(xNow - 30, W - 20, L, UP, 1.8, [12, 9]); hline(xNow - 30, W - 20, S, DOWN, 1.8, [12, 9]);
+      label(xNow + 40, Y(L), ["LONG SL · " + ((cur.c - L) / atr).toFixed(1) + "x"], UP, true);
+      label(xNow + 40, Y(S), ["SHORT SL · " + ((S - cur.c) / atr).toFixed(1) + "x"], DOWN, false);
+    }
+  }
+}
+
+// hero: cycles through every tool on its own
+let heroIdx = 0;
+const hero = new Demo($("heroCv"), () => { heroIdx = (heroIdx + 1) % TOOLS.length; hero.set(TOOLS[heroIdx]); heroInfo(); });
+function heroInfo() { $("heroName").textContent = TOOLS[heroIdx].name; $("heroSub").textContent = TOOLS[heroIdx].sub; }
+heroInfo();
+
+// toolkit: you pick
+const demo = new Demo($("cv")), tabs = $("tabs");
+window.demo = demo;
+function pick(t) {
+  demo.set(t);
+  [...tabs.children].forEach(b => b.setAttribute("aria-selected", b.dataset.id === t.id));
+  $("demoName").textContent = t.name; $("blurb").innerHTML = t.text;
+  $("chips").innerHTML = t.chips.map(c => `<span>${c}</span>`).join("");
+}
+TOOLS.forEach(t => { const b = document.createElement("button"); b.dataset.id = t.id; b.setAttribute("role", "tab"); b.innerHTML = `${t.name}<small>${t.sub}</small>`; b.onclick = () => pick(t); tabs.appendChild(b); });
+pick(TOOLS[0]);
+
+let last = 0, n = 0;
+(function frame(t) {
+  if (t - last > 33) { last = t; if (++n % 2 === 0) { hero.tick(); demo.tick(); } hero.draw(); demo.draw(); }
+  requestAnimationFrame(frame);
+})(0);
+
+// reveal on scroll
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { threshold: .12 });
+document.querySelectorAll(".rise").forEach(e => io.observe(e));
+</script>
+</body>
+</html>
